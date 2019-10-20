@@ -1,5 +1,6 @@
 
 from data_loader import Dataloader
+import os
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,13 +16,16 @@ from tensorflow.python.keras.layers import (
     Lambda
     )
 
+
+root="/home/ubuntu/Desktop/Stages/exos_stages/Behold/data/"
+
 # def VGG():
 # 	model = applications.VGG16(include_top=False, weights='imagenet)
 
 batch_size_train=30
 
 percentage=0.75
-batch_size_val=int(((1-percentage)/percentage)*batch_size_train)
+batch_size_val=30#int(((1-percentage)/percentage)*batch_size_train)
 input_shape=[128, 128]
 
 
@@ -30,17 +34,24 @@ def my_model(input_shape):
 
 	x = Lambda(lambda i: (tf.to_float(i) / 255))(inputs)
 
-	x = Conv2D(128, kernel_size=(5, 5), strides=2, activation="relu")(inputs)
+	
+	x = Conv2D(64, kernel_size=(3,3), strides=2, activation="relu")(inputs)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
 
+	
 	x = Conv2D(128, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
 
+	
 	x = Conv2D(128, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
 
-	x = Conv2D(128, kernel_size=(3,3), strides=1, activation="relu")(x)
+	
+	x = Conv2D(256, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
+
+	
+
 
 	x=Flatten()(x)
 
@@ -51,31 +62,49 @@ def my_model(input_shape):
 
 	return model
 
-optimizer=optimizers.Adam(
+# optimizer=optimizers.Adam(
 
-	)
-# optimizer=optimizers.SGD(
-# 	lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True
 # 	)
+
+
+optimizer=optimizers.SGD(
+	lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True
+	)
 model=my_model(input_shape)
 model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
 
 model.summary()
 
-nbr_epochs=15
+nbr_epochs=1
 train=Dataloader(batch_size_train, True, percentage)
-valid=Dataloader(batch_size_val, False, percentage)
+valid=Dataloader(batch_size_val, False, percentage) 
 a = model.fit_generator(
     train.batch_yielder(), steps_per_epoch=210, epochs=nbr_epochs, 
     validation_data=valid.batch_yielder(), validation_steps=210
 )
 
 
-import pdb
-pdb.set_trace()
 
 y=a.history['loss']
 y_val=a.history['val_loss']
 x=range(nbr_epochs)
 plt.plot(x,y, y_val)
-plt.savefig("/home/ubuntu/Stages/exos_stages/Behold/plots/plot.png")
+plt.savefig("/home/ubuntu/Desktop/Stages/exos_stages/Behold/plots/plot_SGD.png")
+
+test_paths=os.listdir(root+"test_images/test_images")
+nbr_of_tests=len(test_paths)
+test=Dataloader(1, False, percentage) 
+results=model.predict(valid.test_batch_yielder(), batch_size=1, verbose=0, steps=nbr_of_tests)
+
+test_paths=np.array([test_paths]).T
+print(results)
+results=np.concatenate((test_paths, results), axis=1)
+print(results)
+
+import pdb
+pdb.set_trace()
+
+
+#np.savetxt("/home/ubuntu/Desktop/Stages/exos_stages/Behold/results.csv", results, delimiter=",")
+
+

@@ -1,9 +1,9 @@
-# import csv
-# import cv2
+import csv
+import cv2
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-
-
+from tensorflow.python.keras import preprocessing 
 
 root="/home/ubuntu/Desktop/Stages/exos_stages/Behold/data/"
 path=root + "behold_coding_challenge_train.csv"
@@ -17,9 +17,9 @@ path=root + "behold_coding_challenge_train.csv"
 # 	import pdb
 # 	pdb.set_trace()
 # 	del img
-y1=[0,2,4,6,8,9,5,6,5,6,5,6,5,6,5]
-y=range(15)
-x=range(15)
-plt.plot(x,y, y1)
-plt.show()
+datagen = preprocessing.image.ImageDataGenerator()
+img=cv2.imread('/home/ubuntu/Stages/exos_stages/Behold/data/train_images/train_images/train_3580.png')
+img=datagen.apply_transform(x=img, transform_parameters={'ty':5})
+cv2.imwrite('/home/ubuntu/test_img/test_flip.png', img)
+del img
 

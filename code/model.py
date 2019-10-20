@@ -4,6 +4,7 @@ import os
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.python.keras import optimizers, losses
 from tensorflow.python.keras.models import Model
 from tensorflow.python.keras.layers import (
@@ -34,11 +35,11 @@ def my_model(input_shape):
 
 	x = Lambda(lambda i: (tf.to_float(i) / 255))(inputs)
 
-	
-	x = Conv2D(64, kernel_size=(3,3), strides=2, activation="relu")(inputs)
+	x = Conv2D(64, kernel_size=(3,3), strides=1, activation="relu")(inputs)
+	x = Conv2D(64, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
 
-	
+	x = Conv2D(128, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = Conv2D(128, kernel_size=(3,3), strides=1, activation="relu")(x)
 	x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(x)
 
@@ -75,11 +76,15 @@ model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accurac
 
 model.summary()
 
-nbr_epochs=1
+nbr_epochs=50
 train=Dataloader(batch_size_train, True, percentage)
 valid=Dataloader(batch_size_val, False, percentage) 
+
+early_stopping = EarlyStopping(monitor="val_loss", patience=5, verbose=1, mode="min")
+checkpoint = ModelCheckpoint("/home/ubuntu/Desktop/Stages/exos_stages/Behold/results/checkpoints.hdf5", period=1, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
+
 a = model.fit_generator(
-    train.batch_yielder(), steps_per_epoch=210, epochs=nbr_epochs, 
+    train.batch_yielder(), steps_per_epoch=210, epochs=nbr_epochs, callbacks=[early_stopping, checkpoint], 
     validation_data=valid.batch_yielder(), validation_steps=210
 )
 
@@ -89,7 +94,7 @@ y=a.history['loss']
 y_val=a.history['val_loss']
 x=range(nbr_epochs)
 plt.plot(x,y, y_val)
-plt.savefig("/home/ubuntu/Desktop/Stages/exos_stages/Behold/plots/plot_SGD.png")
+plt.savefig("/home/ubuntu/Desktop/Stages/exos_stages/Behold/results/plots/plot_SGD.png")
 
 test_paths=os.listdir(root+"test_images/test_images")
 nbr_of_tests=len(test_paths)
@@ -101,10 +106,8 @@ print(results)
 results=np.concatenate((test_paths, results), axis=1)
 print(results)
 
-import pdb
-pdb.set_trace()
 
+np.savetxt("/home/ubuntu/Desktop/Stages/exos_stages/Behold/results/results.csv", results, fmt='%s', delimiter=",")
 
-#np.savetxt("/home/ubuntu/Desktop/Stages/exos_stages/Behold/results.csv", results, delimiter=",")
 
 

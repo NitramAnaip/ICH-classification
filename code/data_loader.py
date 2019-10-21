@@ -9,8 +9,8 @@ from tensorflow.python.keras import preprocessing
 in lack of a better word element here will design an instance of a brain image and/or its output
 """
 
-root="/home/ubuntu/Desktop/Stages/exos_stages/Behold/data/"
-path=root + "behold_coding_challenge_train.csv"
+root="/home/ubuntu/martin/Behold/"
+path=root + "data/behold_coding_challenge_train.csv"
 
 def create_label_list():
 	label_list=[]
@@ -59,6 +59,7 @@ class Dataloader():
 		self.batch_size=batch_size
 		self.label_list=create_label_list()
 		train_index=int(train_percent*len(self.label_list))
+		shuffle(self.label_list)
 		if train:
 			self.label_list=self.label_list[:train_index]
 
@@ -82,7 +83,7 @@ class Dataloader():
 				batch=[]
 				outputs=[]
 				for j in range (start, end):
-					img_path=root+"train_images/train_images/"+self.label_list[j][0]+".png"
+					img_path=root+"data/train_images/train_images/"+self.label_list[j][0]+".png"
 					
 					img=cv2.imread(img_path)
 					img=colour_to_grey(img)
@@ -98,7 +99,7 @@ class Dataloader():
 			outputs=[]
 			for j in range (nbr_of_batches*self.batch_size, len(indexes)):
 
-				img_path=root+"train_images/train_images/"+self.label_list[j][0]+".png"
+				img_path=root+"data/train_images/train_images/"+self.label_list[j][0]+".png"
 				img=cv2.imread(img_path)
 				img=colour_to_grey(img)
 				batch.append(img)
@@ -108,7 +109,7 @@ class Dataloader():
 			yield(batch, outputs)
 
 	def test_batch_yielder(self):
-		test_img_paths=os.listdir(root+"test_images/test_images")
+		test_img_paths=os.listdir(root+"data/test_images/test_images")
 		nbr_of_batches=len(test_img_paths)//self.batch_size
 		for i in range (nbr_of_batches):
 			start=i*self.batch_size
@@ -116,7 +117,7 @@ class Dataloader():
 			
 			batch=[]
 			for j in range (start, end):
-				img_path=root+"test_images/test_images/"+test_img_paths[j]
+				img_path=root+"data/test_images/test_images/"+test_img_paths[j]
 				img=cv2.imread(img_path)
 				img=colour_to_grey(img) #we have to turn it to grey img since tht is what our network was trained on
 				batch.append(img)
@@ -124,7 +125,7 @@ class Dataloader():
 			yield(batch)
 		batch=[]
 		for j in range (nbr_of_batches*self.batch_size, len(test_img_paths)):
-			img_path=root+"test_images/test_images/"+test_img_paths[j]
+			img_path=root+"data/test_images/test_images/"+test_img_paths[j]
 			img=cv2.imread(img_path)
 			img=colour_to_grey(img) 
 			batch.append(img)

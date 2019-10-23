@@ -95,10 +95,9 @@ def my_model(input_shape):
 
 	x=Flatten()(x)
 
-	#x = Dense(4096, activation="relu")(x)
-	x = Dense(100, activation="relu")(x)
-	x = Dense(100, activation="relu")(x)
-	x = Dense(3, activation="softmax")(x)
+	x = Dense(128, activation="relu")(x)
+	x = Dense(128, activation="relu")(x)
+	x = Dense(3, activation="sigmoid")(x)
 
 	model = Model(inputs=inputs, outputs=x)
 
@@ -132,9 +131,9 @@ def my_2nd_model(input_shape):
 
 	x=Flatten()(x)
 
-	#x = Dense(4096, activation="relu")(x)
-	x = Dense(100, activation="relu")(x)
-	x = Dense(3, activation="softmax")(x)
+	x = Dense(128, activation="relu")(x)
+	x = Dense(128, activation="relu")(x)
+	x = Dense(3, activation="sigmoid")(x)
 
 	model = Model(inputs=inputs, outputs=x)
 
@@ -143,15 +142,15 @@ def my_2nd_model(input_shape):
 
 
 
-optimizer=optimizers.Adam(
+# optimizer=optimizers.Adam(
 
-	)
-
-
-# optimizer=optimizers.SGD(
-# 	lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True
 # 	)
-model=my_2nd_model(input_shape)
+
+
+optimizer=optimizers.SGD(
+	lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True
+	)
+model=my_model(input_shape)
 model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=["accuracy"])
 
 model.summary()
@@ -160,8 +159,9 @@ nbr_epochs=300
 generator=Dataloader(batch_size_train, percentage)
 
 
-early_stopping = EarlyStopping(monitor="val_loss", patience=50, verbose=1, mode="min")
-checkpoint = ModelCheckpoint(root+"results/checkpoints.hdf5", period=1, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
+early_stopping = EarlyStopping(monitor="val_loss", patience=1, verbose=1, mode="min")
+checkpoint_path=root+"results/checkpoints.hdf5"
+checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_loss", verbose=1, save_best_only=True, mode="min")
 
 a = model.fit_generator(
     generator.batch_yielder(), steps_per_epoch=203, epochs=nbr_epochs, callbacks=[early_stopping, checkpoint],
@@ -176,15 +176,31 @@ x=range(len(y_val))
 plt.plot(x,y, y_val)
 plt.savefig(root+"results/plots/plot_Adam.png")
 
+
+model.load_weights(checkpoint_path) #loading the best weights to predict with these
+
+
+
 test_paths=os.listdir(root+"data/test_images/test_images")
 nbr_of_tests=len(test_paths)
-test=Dataloader(1, percentage) 
-probabilities=model.predict(valid.test_batch_yielder(), batch_size=1, verbose=0, steps=nbr_of_tests)
+probabilities=model.predict(generator.test_batch_yielder(), batch_size=1, verbose=0, steps=nbr_of_tests)
 
 test_paths=np.array([test_paths]).T
 probabilities=np.concatenate((test_paths, probabilities), axis=1)
+print(probabilities)
 
 
+def from_proba_to_output(probabilities):
+	outputs=np.copy(probabilities)
+	for i in range (len(outputs)):
+		for j in range (1, 4):
+			if (float(outputs[i][j]))>0.5:
+				outputs[i][j]=1
+			else:
+				outputs[i][j]=0
+	return outputs
+outputs=from_proba_to_output(probabilities)
+np.savetxt(root+"results/outputs_Adam.csv", outputs, fmt='%s', delimiter=",")
 np.savetxt(root+"results/probabilities_Adam.csv", probabilities, fmt='%s', delimiter=",")
 
 

@@ -62,3 +62,8 @@ for i in range(len(lis)):
 	if lis[i][1][0]==1 and lis[i][1][1]==1 and lis[i][1][2]==1:
 		types[7]+=1
 print(types)
+
+
+tata=[]
+tata=tata+[5,6]
+print(tata)

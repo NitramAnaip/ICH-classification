@@ -80,7 +80,16 @@ def balancing_data(label_list, train_percent):
 
 
 
-
+def output_formater(data):
+	for i in range (len(data)):
+		output=[]
+		for j in range (len(data[i][1])):
+			if data[i][1][j]==0:
+				output=output+[0,1]
+			elif data[i][1][j]==1:
+				output=output+[1,0]
+		data[i][1]=output
+	return 0
 
 
 
@@ -93,7 +102,8 @@ class Dataloader():
 		label_list=create_label_list()
 
 		self.validation_list, self.label_list=balancing_data(label_list, train_percent)
-
+		# output_formater(self.validation_list)
+		# output_formater(self.label_list)
 
 
 		self.datagen = preprocessing.image.ImageDataGenerator()
@@ -113,7 +123,7 @@ class Dataloader():
 				batch=[]
 				outputs=[]
 				for j in range (start, end):
-					img_path=root+"data/train_images/train_images/"+self.label_list[j][0]+".png"
+					img_path=root+"data/train_images/train_images/"+self.label_list[indexes[j]][0]+".png"
 					
 					img=cv2.imread(img_path)
 					img=colour_to_grey(img)
@@ -121,7 +131,7 @@ class Dataloader():
 					mod_type=randint(0,4)
 					dataGenerator(img, mod_type, self.datagen)
 					batch.append(img)
-					outputs.append(np.array(self.label_list[j][1]))
+					outputs.append(np.array(self.label_list[indexes[j]][1]))
 				batch=np.array(batch)
 				outputs=np.array(outputs)
 				yield(batch, outputs)
@@ -132,11 +142,11 @@ class Dataloader():
 			outputs=[]
 			for j in range (nbr_of_batches*self.batch_size, len(indexes)):
 
-				img_path=root+"data/train_images/train_images/"+self.label_list[j][0]+".png"
+				img_path=root+"data/train_images/train_images/"+self.label_list[indexes[j]][0]+".png"
 				img=cv2.imread(img_path)
 				img=colour_to_grey(img)
 				batch.append(img)
-				outputs.append(np.array(self.label_list[j][1]))
+				outputs.append(np.array(self.label_list[indexes[j]][1]))
 			batch=np.array(batch)
 			outputs=np.array(outputs)
 			yield(batch, outputs)
@@ -177,27 +187,14 @@ class Dataloader():
 
 	def test_batch_yielder(self):
 		test_img_paths=os.listdir(root+"data/test_images/test_images")
-		nbr_of_batches=len(test_img_paths)//self.batch_size
-		for i in range (nbr_of_batches):
-			start=i*self.batch_size
-			end=(i+1)*self.batch_size
-			
+		for j in range (len(test_img_paths)):
+
 			batch=[]
-			for j in range (start, end):
-				img_path=root+"data/test_images/test_images/"+test_img_paths[j]
-				img=cv2.imread(img_path)
-				img=colour_to_grey(img) #we have to turn it to grey img since tht is what our network was trained on
-				batch.append(img)
-			batch=np.array(batch)
-			yield(batch)
-		batch=[]
-		for j in range (nbr_of_batches*self.batch_size, len(test_img_paths)):
 			img_path=root+"data/test_images/test_images/"+test_img_paths[j]
 			img=cv2.imread(img_path)
-			img=colour_to_grey(img) 
+			img=colour_to_grey(img) #we have to turn it to grey img since tht is what our network was trained on
 			batch.append(img)
-
-		batch=np.array(batch)
-		yield(batch)
-
-
+			batch=np.array(batch)
+			yield(batch)
+		
+		

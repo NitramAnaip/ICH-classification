@@ -134,25 +134,20 @@ def balancing_data(label_list, train_percent):
 
 
 class Dataloader:
-    def __init__(self, batch_size, train_percent, mobile):
+    def __init__(self, batch_size, train_percent, mobilenet):
         """
 		train_percent is the proportion of our data we use for training (as opposed to validation)
         mobile is a boolean telling us whether we are using mobileNet or not
 		"""
         self.batch_size = batch_size
-        self.mobile=mobile
+        self.mobile=mobilenet
         label_list = create_label_list()
-        # self.validation_list, self.label_list = balancing_data(
-        #     label_list, train_percent
-        # )
-        print("shuffling")
+
         shuffle(label_list)
         train_index = int(len(label_list) * train_percent)
         self.validation_list=label_list[train_index:]
         self.label_list=label_list[:train_index]
-        # for i in range (len(self.validation_list)):
-        #     print(self.validation_list[i][1], "validation_list")
-        # print(self.label_list, "label_list")
+
 
         self.datagen = preprocessing.image.ImageDataGenerator()
 
@@ -276,4 +271,6 @@ class Dataloader:
             batch.append(img)
             batch = np.array(batch)
             yield (batch)
+
+
 

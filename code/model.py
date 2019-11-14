@@ -3,14 +3,15 @@ import os
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import tensorflow.keras.backend as K
 from sampler import Sampler, DataLoader, test_generator
-
-from sklearn.metrics import roc_curve
+# import metrics
+from sklearn.metrics import roc_curve, confusion_matrix
 from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.python.keras import optimizers, losses
 from tensorflow.python.keras.applications import mobilenet_v2
 from tensorflow.python.keras.models import Model
-from tensorflow.keras.metrics import AUC, Recall
+from tensorflow.keras.metrics import AUC, Recall, Precision
 from tensorflow.python.keras.layers import (
     Dense,
     Conv2D,
@@ -40,7 +41,7 @@ mobilenet=False
 
 
 network="my_2nd_model"
-opti="SGD"
+opti="Adam"
 if network=="mobilenet":
     mobilenet=True
 
@@ -51,9 +52,10 @@ if network=="mobilenet":
 
 
 
-early_stopping = EarlyStopping(monitor="val_recall", patience=20, verbose=1, mode="max")
+early_stopping = EarlyStopping(monitor="val_recall", patience=30, verbose=1, mode="max")
 checkpoint_path=root+"results/checkpoints.hdf5"
 checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_recall", verbose=1, save_best_only=True, mode="max")
+
 
 
 
@@ -145,7 +147,7 @@ def my_2nd_model(input_shape):
 
     x = Lambda(lambda i: (tf.to_float(i) / 255))(inputs)
 
-    x = Conv2D(64, kernel_size=(3, 3), strides=1, activation="relu")(inputs)
+    x = Conv2D(64, kernel_size=(3, 3), strides=1, activation="relu")(x)
     x = Conv2D(64, kernel_size=(3, 3), strides=1, activation="relu")(x)
     x = MaxPooling2D(pool_size=(2, 2), strides=None, padding="valid", data_format=None)(
         x
@@ -172,7 +174,6 @@ def my_2nd_model(input_shape):
     x = Flatten()(x)
 
     x = Dense(128, activation="relu")(x)
-    x = Dense(128, activation="relu")(x)
     x = Dense(2, activation="softmax")(x)
 
     model = Model(inputs=inputs, outputs=x)
@@ -193,7 +194,7 @@ if opti=="Adam":
 
     )
 if opti=="SGD":
-    optimizer = optimizers.SGD(lr=0.0001, decay=1e-6, momentum=0.9, nesterov=True)
+    optimizer = optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 
 
 
@@ -212,8 +213,8 @@ nbr_epochs=300
 
 
 #NEW TRYOUT**********************
-partition=[0.5,0.4,0.1]
-data=DataLoader(0,partition)
+partition=[0.75,0.15,0.1]
+data=DataLoader(1,partition)
 data.balance_data()
 train_data=data.train_data
 valid_data=data.valid_data
@@ -223,7 +224,7 @@ test_data=data.test_data
 train_sampler=Sampler(train_data, batch_size_train, "train", network)
 valid_sampler=Sampler(valid_data, batch_size_train, "valid", network)
 a = model.fit_generator(
-    train_sampler, epochs=2, verbose=1, validation_data=valid_sampler, max_queue_size=100,
+    train_sampler, epochs=100, verbose=1, validation_data=valid_sampler, max_queue_size=100,
     workers=16, use_multiprocessing=True, callbacks=[early_stopping, checkpoint]
 )
 #*********************
@@ -241,7 +242,7 @@ y=a.history['loss']
 y_val=a.history['val_loss']
 x=range(len(y_val))
 plt.plot(x,y, y_val)
-plt.savefig(root + "results/plots/plot_"+opti+"_"+network+".png")
+plt.savefig(root + "plots/plot_"+opti+"_"+network+".png")
 
 
 test_gen=test_generator(test_data, network)
@@ -255,7 +256,6 @@ model.load_weights(checkpoint_path)  # loading the best weights to predict with 
 probabilities = model.predict(
     test_gen, batch_size=1, verbose=0, steps=len(test_data)
 )
-
 # test_paths = np.array([test_paths]).T
 # probabilities = np.concatenate((test_paths, probabilities), axis=1)
 # print(probabilities)
@@ -264,13 +264,27 @@ probabilities = model.predict(
 def from_proba_to_output(probabilities):
     outputs = np.copy(probabilities)
     for i in range(len(outputs)):
-        for j in range(1, 4):
+        for j in range(2):
             if (float(outputs[i][j])) > 0.5:
                 outputs[i][j] = 1
             else:
                 outputs[i][j] = 0
     return outputs
 
+def transf_for_roc(probabilities):
+    outputs=[]
+    for i in range(len(probabilities)):
+        outputs.append(probabilities[i][1])#we output the probability of the img being one of a hemorragy
+    return outputs
+
+def tranf_for_conf_matrix(probabilities, threshold):
+    outputs=[]
+    for i in range (len(probabilities)):
+        if probabilities[i][1]>threshold:
+            outputs.append(1)
+        else:
+            outputs.append(0)
+    return outputs
 
 # outputs = from_proba_to_output(probabilities)
 # np.savetxt(root + "results/outputs/"+opti+"_"+network+".csv", outputs, fmt="%s", delimiter=",")
@@ -281,13 +295,34 @@ def from_proba_to_output(probabilities):
 
 
 #ROC curve plotting
-y_score=model.predict(test_gen, batch_size=1, verbose=0, steps=len(test_data))
+y_score=transf_for_roc(probabilities)
 y_true=[]
 for i in range (len(test_data)):
-    y_true.append(test_data[i][1])
+    y_true.append(test_data[i][1][1]) #if in a state of hemorragy it will be of value 1
+y_score, y_true=np.array(y_score), np.array(y_true)
+print("y_true: ", y_true)
 
-fpr, tpr, thresholds = roc_curve(y_true, y_score, pos_label=2)
 
+fpr, tpr, thresholds = roc_curve(y_true, y_score)
+plt.clf()
+plt.plot(fpr,tpr)
+plt.ylabel('tpr')
+plt.xlabel('fpr')
+plt.savefig("/home/ubuntu/martin/kaggle/plots/roc.png")
 
+plt.clf()
+plt.plot(thresholds,tpr, label='tpr')
+plt.plot(thresholds,fpr, label='fpr')
+plt.xlabel('thresholds')
+plt.savefig("/home/ubuntu/martin/kaggle/plots/thresholds.png")
+
+y_pred=tranf_for_conf_matrix(probabilities, 0.5)
+print(y_pred)
+print(confusion_matrix(y_true, y_pred))
+
+# x=range (0, 9)
+# y=range (0,9)
+# plt.plot(x,y)
+# plt.savefig("/home/ubuntu/martin/kaggle/plots/test.png")
 
 #metrics to use with patient detection: Recall (TPR) or AUC

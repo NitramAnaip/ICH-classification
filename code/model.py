@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow.keras.backend as K
 from sampler import Sampler, DataLoader, test_generator
+from utils import f1
 # import metrics
 from sklearn.metrics import roc_curve, confusion_matrix
 from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -52,9 +53,9 @@ if network=="mobilenet":
 
 
 
-early_stopping = EarlyStopping(monitor="val_recall", patience=30, verbose=1, mode="max")
+early_stopping = EarlyStopping(monitor="val_f1", patience=30, verbose=1, mode="max")
 checkpoint_path=root+"results/checkpoints.hdf5"
-checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_recall", verbose=1, save_best_only=True, mode="max")
+checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_f1", verbose=1, save_best_only=True, mode="max")
 
 
 
@@ -133,7 +134,7 @@ def my_model(input_shape):
 
     #x = Dense(4096, activation="relu")(x)
     x = Dense(128, activation="relu")(x)
-    x = Dense(2, activation="softmax")(x)
+    x = Dense(1, activation="sigmoid")(x)
 
     model = Model(inputs=inputs, outputs=x)
 
@@ -174,7 +175,7 @@ def my_2nd_model(input_shape):
     x = Flatten()(x)
 
     x = Dense(128, activation="relu")(x)
-    x = Dense(2, activation="softmax")(x)
+    x = Dense(1, activation="sigmoid")(x)
 
     model = Model(inputs=inputs, outputs=x)
 
@@ -198,7 +199,7 @@ if opti=="SGD":
 
 
 
-model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=[AUC(), Recall()])
+model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=[f1])
 model.summary()
 
 nbr_epochs=300
@@ -214,7 +215,7 @@ nbr_epochs=300
 
 #NEW TRYOUT**********************
 partition=[0.75,0.15,0.1]
-data=DataLoader(1,partition)
+data=DataLoader(0,partition)
 data.balance_data()
 train_data=data.train_data
 valid_data=data.valid_data
@@ -271,16 +272,16 @@ def from_proba_to_output(probabilities):
                 outputs[i][j] = 0
     return outputs
 
-def transf_for_roc(probabilities):
-    outputs=[]
-    for i in range(len(probabilities)):
-        outputs.append(probabilities[i][1])#we output the probability of the img being one of a hemorragy
-    return outputs
+# def transf_for_roc(probabilities):
+#     outputs=[]
+#     for i in range(len(probabilities)):
+#         outputs.append(probabilities[i][1])#we output the probability of the img being one of a hemorragy
+#     return outputs
 
 def tranf_for_conf_matrix(probabilities, threshold):
     outputs=[]
     for i in range (len(probabilities)):
-        if probabilities[i][1]>threshold:
+        if probabilities[i]>threshold:
             outputs.append(1)
         else:
             outputs.append(0)
@@ -295,10 +296,10 @@ def tranf_for_conf_matrix(probabilities, threshold):
 
 
 #ROC curve plotting
-y_score=transf_for_roc(probabilities)
+y_score=probabilities
 y_true=[]
 for i in range (len(test_data)):
-    y_true.append(test_data[i][1][1]) #if in a state of hemorragy it will be of value 1
+    y_true.append(test_data[i][1]) #if in a state of hemorragy it will be of value 1
 y_score, y_true=np.array(y_score), np.array(y_true)
 print("y_true: ", y_true)
 

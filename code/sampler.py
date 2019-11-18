@@ -84,9 +84,9 @@ class DataLoader():
         list_types = [[], []]
         for i in range(len(self.label_list)):
             if (self.label_list[i][1][self.classe] == 1):
-                list_types[0].append([self.label_list[i][0], [0,1]])
+                list_types[0].append([self.label_list[i][0], 1])
             else:
-                list_types[1].append([self.label_list[i][0], [1,0]])
+                list_types[1].append([self.label_list[i][0], 0])
         for i in range (len(list_types)):
             self.train_data=self.train_data+list_types[i][: int(len(list_types[i])*self.percentage[0])]
             self.valid_data=self.valid_data+list_types[i][int(len(list_types[i])*self.percentage[0]) : int(len(list_types[i])*(self.percentage[0]+self.percentage[1]))]
@@ -117,8 +117,6 @@ class Sampler(Sequence):
         self.datagen = preprocessing.image.ImageDataGenerator()
         self.batch_size=batch_size
         self.data_type=data_type #can be "train" or "valid"
-        if self.data_type=="test":
-            self.batch_size=1
         self.network=network
         self.data=data
         self.iterations = ceil(len(self.data) / self.batch_size)
@@ -133,6 +131,8 @@ class Sampler(Sequence):
         end=(idx+1)*self.batch_size
         batch=[]
         outputs=[]
+        nbr_pos=0
+        nbr_neg=0
         for index in self.indexes[start:end]:
             img_path = (
                         root
@@ -146,9 +146,30 @@ class Sampler(Sequence):
             if self.data_type=="train":
                 mod_type =randint(0, 7) #randomly choose a transformation to apply to the image at hand
                 img=dataGenerator(img, mod_type, self.datagen)
-
+            if self.data[index][1]==1:
+                nbr_pos+=1
+            else:
+                nbr_neg+=1
             batch.append(img)
             outputs.append(self.data[index][1])
+        #***try to balance batches*******
+        if self.data_type=="train":
+            for k in range (2*int(nbr_neg/max(1,nbr_pos))):
+                for index in self.indexes[start:end]:
+                    if self.data[index][1]==1:
+                        outputs.append(1)
+                        img_path = (
+                                    root
+                                    + "data/train_images/train_images/"
+                                    + self.data[index][0]
+                                    + ".png"
+                                )   
+                        mod_type =randint(0, 7) #randomly choose a transformation to apply to the image at hand
+                        img=dataGenerator(img, mod_type, self.datagen)
+                        batch.append(img)
+
+
+
 
         batch = np.array(batch)
         outputs = np.array(outputs)

@@ -1,5 +1,4 @@
 import  numpy as np
-from tensorflow.keras import backend as K
 import csv
 
 root = "/home/ubuntu/martin/kaggle/"
@@ -33,32 +32,34 @@ def colour_to_grey(img):
     return grey
 
 
-def f1(y_true, y_pred):
-    def recall(y_true, y_pred):
-        """Recall metric.
 
-        Only computes a batch-wise average of recall.
+def from_proba_to_output(probabilities, threshold):
+    outputs = np.copy(probabilities)
+    for i in range(len(outputs)):
 
-        Computes the recall, a metric for multi-label classification of
-        how many relevant items are selected.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-        recall = true_positives / (possible_positives + K.epsilon())
-        return recall
+        if (float(outputs[i])) > threshold:
+            outputs[i] = int(1)
+        else:
+            outputs[i] = int(0)
+    return np.array(outputs)
 
-    def precision(y_true, y_pred):
-        """Precision metric.
+def tranf_for_conf_matrix(probabilities, threshold):
+    outputs=[]
+    for i in range (len(probabilities)):
+        if probabilities[i]>threshold:
+            outputs.append(1)
+        else:
+            outputs.append(0)
+    return outputs
 
-        Only computes a batch-wise average of precision.
 
-        Computes the precision, a metric for multi-label classification of
-        how many selected items are relevant.
-        """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-        precision = true_positives / (predicted_positives + K.epsilon())
-        return precision
-    precision = precision(y_true, y_pred)
-    recall = recall(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
+def data_visualiser(labels_list):
+    #prints the repartition in the different classes
+    classes=[[0,0], [0,0], [0,0]]
+    for i in range (len(labels_list)):
+        for classe in range (0,3):
+            if labels_list[i][1][classe]==0:
+                classes[classe][0]+=1
+            else:
+                classes[classe][1]+=1
+    return classes

@@ -15,16 +15,6 @@ path = root + "data/kaggle_coding_challenge_train.csv"
 
 
 
-def data_visualiser(labels_list):
-    #prints the repartition in the different classes
-    classes=[[0,0], [0,0], [0,0]]
-    for i in range (len(labels_list)):
-        for classe in range (0,3):
-            if labels_list[i][1][classe]==0:
-                classes[classe][0]+=1
-            else:
-                classes[classe][1]+=1
-    return classes
 
 
 
@@ -87,10 +77,19 @@ class DataLoader():
                 list_types[0].append([self.label_list[i][0], 1])
             else:
                 list_types[1].append([self.label_list[i][0], 0])
+        
         for i in range (len(list_types)):
-            self.train_data=self.train_data+list_types[i][: int(len(list_types[i])*self.percentage[0])]
             self.valid_data=self.valid_data+list_types[i][int(len(list_types[i])*self.percentage[0]) : int(len(list_types[i])*(self.percentage[0]+self.percentage[1]))]
             self.test_data=self.test_data+list_types[i][int(len(list_types[i])*(self.percentage[0]+self.percentage[1])):]
+        all_pos=list_types[0].copy()
+        self.nbr_pos_in_train=int(len(list_types[0])*self.percentage[0])
+        self.nbr_neg_in_train=int(len(list_types[1])*self.percentage[0])
+        self.train_data=all_pos[:self.nbr_pos_in_train]
+        for i in range (int(self.nbr_neg_in_train/self.nbr_pos_in_train)):
+            for k in range (self.nbr_pos_in_train):
+                self.train_data.append(all_pos[i])
+        for i in range (self.nbr_neg_in_train):
+            self.train_data.append(list_types[1][i])
         print("end of balancing data")
 
 
@@ -112,7 +111,7 @@ class DataLoader():
 
 
 class Sampler(Sequence):
-    def __init__(self, data, batch_size, data_type, network):
+    def __init__(self, data, batch_size, data_type, network, nbr_pos_in_train=None):
         print("start init")
         self.datagen = preprocessing.image.ImageDataGenerator()
         self.batch_size=batch_size
@@ -121,6 +120,7 @@ class Sampler(Sequence):
         self.data=data
         self.iterations = ceil(len(self.data) / self.batch_size)
         self.indexes=list(range(len(data)))
+        self.nbr_pos_in_train=nbr_pos_in_train
         shuffle(self.indexes)
         print("end init")
 
@@ -152,21 +152,22 @@ class Sampler(Sequence):
                 nbr_neg+=1
             batch.append(img)
             outputs.append(self.data[index][1])
-        #***try to balance batches*******
-        if self.data_type=="train":
-            for k in range (2*int(nbr_neg/max(1,nbr_pos))):
-                for index in self.indexes[start:end]:
-                    if self.data[index][1]==1:
-                        outputs.append(1)
-                        img_path = (
-                                    root
-                                    + "data/train_images/train_images/"
-                                    + self.data[index][0]
-                                    + ".png"
-                                )   
-                        mod_type =randint(0, 7) #randomly choose a transformation to apply to the image at hand
-                        img=dataGenerator(img, mod_type, self.datagen)
-                        batch.append(img)
+        # #***try to balance batches*******
+        # if self.data_type=="train":
+        #     print(self.nbr_pos_in_train)
+        #     for k in range (2*int(nbr_neg/max(1,nbr_pos))):
+        #         position=randint(0,self.nbr_pos_in_train-1)
+        #         outputs.append(self.data[index][1])
+        #         img_path = (
+        #                     root
+        #                     + "data/train_images/train_images/"
+        #                     + self.data[index][0]
+        #                     + ".png"
+        #                 )   
+        #         mod_type =randint(0, 7) #randomly choose a transformation to apply to the image at hand
+        #         img=dataGenerator(img, mod_type, self.datagen)
+        #         batch.append(img)
+        # print (outputs)
 
 
 
@@ -206,8 +207,20 @@ def test_generator(test_data, network):
         yield(np.array([img]))
 
 
-
-
+def generator(data, network, outputs_list):
+    for i in range (len(data)):
+        img_path=(
+                    root
+                    + "data/train_images/train_images/"
+                    + data[i][0]
+                    + ".png"
+                )
+        outputs_list.append([data[i][1]])
+        img = cv2.imread(img_path)
+        if network!="mobilenet":
+            img = colour_to_grey(img)
+        yield(np.array([img]))
+    outputs_list=np.array(outputs_list)
 
 
         

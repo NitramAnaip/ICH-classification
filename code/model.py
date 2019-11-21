@@ -5,8 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow.keras.backend as K
 from sampler import Sampler, DataLoader, test_generator
-from utils import f1
-# import metrics
+from utils import from_proba_to_output, tranf_for_conf_matrix
+from metrics import Metrics
 from sklearn.metrics import roc_curve, confusion_matrix
 from tensorflow.python.keras.callbacks import ModelCheckpoint, EarlyStopping
 from tensorflow.python.keras import optimizers, losses
@@ -42,7 +42,7 @@ mobilenet=False
 
 
 network="my_2nd_model"
-opti="Adam"
+opti="SGD"
 if network=="mobilenet":
     mobilenet=True
 
@@ -53,9 +53,9 @@ if network=="mobilenet":
 
 
 
-early_stopping = EarlyStopping(monitor="val_f1", patience=30, verbose=1, mode="max")
+early_stopping = EarlyStopping(monitor="val_acc", patience=2, verbose=1, mode="max")
 checkpoint_path=root+"results/checkpoints.hdf5"
-checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_f1", verbose=1, save_best_only=True, mode="max")
+checkpoint = ModelCheckpoint(checkpoint_path, period=1, monitor="val_acc", verbose=1, save_best_only=True, mode="max")
 
 
 
@@ -199,7 +199,7 @@ if opti=="SGD":
 
 
 
-model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=[f1])
+model.compile(optimizer=optimizer, loss="binary_crossentropy", metrics=['accuracy'])
 model.summary()
 
 nbr_epochs=300
@@ -220,13 +220,15 @@ data.balance_data()
 train_data=data.train_data
 valid_data=data.valid_data
 test_data=data.test_data
+nbr_pos_in_train=data.nbr_pos_in_train
 
-
-train_sampler=Sampler(train_data, batch_size_train, "train", network)
+# import pdb
+# pdb.set_trace()
+train_sampler=Sampler(train_data, batch_size_train, "train", network, nbr_pos_in_train)
 valid_sampler=Sampler(valid_data, batch_size_train, "valid", network)
 a = model.fit_generator(
-    train_sampler, epochs=100, verbose=1, validation_data=valid_sampler, max_queue_size=100,
-    workers=16, use_multiprocessing=True, callbacks=[early_stopping, checkpoint]
+    train_sampler, epochs=6, verbose=1, validation_data=valid_sampler, max_queue_size=1,
+    workers=1, use_multiprocessing=True, callbacks=[early_stopping, checkpoint, Metrics(model, valid_data, network)]
 )
 #*********************
 
@@ -262,11 +264,11 @@ probabilities = model.predict(
 # print(probabilities)
 
 
-def from_proba_to_output(probabilities):
+def from_proba_to_output(probabilities, threshold):
     outputs = np.copy(probabilities)
     for i in range(len(outputs)):
         for j in range(2):
-            if (float(outputs[i][j])) > 0.5:
+            if (float(outputs[i][j])) > threshold:
                 outputs[i][j] = 1
             else:
                 outputs[i][j] = 0
@@ -278,14 +280,7 @@ def from_proba_to_output(probabilities):
 #         outputs.append(probabilities[i][1])#we output the probability of the img being one of a hemorragy
 #     return outputs
 
-def tranf_for_conf_matrix(probabilities, threshold):
-    outputs=[]
-    for i in range (len(probabilities)):
-        if probabilities[i]>threshold:
-            outputs.append(1)
-        else:
-            outputs.append(0)
-    return outputs
+
 
 # outputs = from_proba_to_output(probabilities)
 # np.savetxt(root + "results/outputs/"+opti+"_"+network+".csv", outputs, fmt="%s", delimiter=",")
@@ -305,6 +300,7 @@ print("y_true: ", y_true)
 
 
 fpr, tpr, thresholds = roc_curve(y_true, y_score)
+print(fpr, tpr, thresholds)
 plt.clf()
 plt.plot(fpr,tpr)
 plt.ylabel('tpr')
